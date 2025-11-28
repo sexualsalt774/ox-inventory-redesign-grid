@@ -186,7 +186,24 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
-                    onFocus={(e) => e.stopPropagation()}
+                    onFocus={() => {
+                      fetch(`https://${GetParentResourceName()}/thisfuckingsucks`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ focus: true }),
+                      });
+                    }}
+                    onBlur={() => {
+                      fetch(`https://${GetParentResourceName()}/lolthisisstupid`, {
+                        method: 'POST',
+                        headers: {
+                          'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ focus: false }),
+                      });
+                    }}
                   />
                   <i className="far fa-search"></i>
                 </div>
