@@ -1,20 +1,3 @@
-# 🎨 Project Description
-
-**All credit goes to Casper and his inital resdesign. I've either made things worst or better, lol.**
-
-This redesigned version of **ox_inventory** is an active **work in progress**, released early so the community can continue improving, expanding, and polishing it. It builds on Casper’s original redesign while fixing multiple issues, improving stability, and introducing new features across the UI and core logic.
-
-A fully custom **shop system** (production-ready) has been added, along with a new **crafting system** that is currently under development. Additional improvements, bug fixes, and quality-of-life features will continue to roll out as the project evolves.
-
-Use common sense, contribute responsibly, and feel free to join my Discord so we can share ideas, collaborate, and create more systems together.
-
-This project is **free** and will remain free.  
-**Do not resell** this resource. It is released publicly so people don’t have to overpay for redesigns — especially ones that are broken, outdated, or poorly maintained.
-
-Before using the UI, make sure to **build the inventory** unless you are using the pre-built version included. Most features are plug-and-play, and a few example items have been added to help you get started quickly.
-
----
-
 # 📌 Project Status 
 
 ## 🚧 Work in Progress 
@@ -41,6 +24,25 @@ Implemented, tested, and stable features.
 - [x] Fixed Utility Inventory
 - [x] Added Backpack Inventory
 - [x] Reworked Storage Inventory
+
+--- 
+
+# 🎨 Project Description
+
+**All credit goes to Casper and his inital resdesign. I've either made things worst or better, lol.**
+
+This redesigned version of **ox_inventory** is an active **work in progress**, released early so the community can continue improving, expanding, and polishing it. It builds on Casper’s original redesign while fixing multiple issues, improving stability, and introducing new features across the UI and core logic.
+
+A fully custom **shop system** (production-ready) has been added, along with a new **crafting system** that is currently under development. Additional improvements, bug fixes, and quality-of-life features will continue to roll out as the project evolves.
+
+Use common sense, contribute responsibly, and feel free to join my Discord so we can share ideas, collaborate, and create more systems together.
+
+This project is **free** and will remain free.  
+**Do not resell** this resource. It is released publicly so people don’t have to overpay for redesigns — especially ones that are broken, outdated, or poorly maintained.
+
+Before using the UI, make sure to **build the inventory** unless you are using the pre-built version included. Most features are plug-and-play, and a few example items have been added to help you get started quickly.
+
+---
 
 ## 📚 Documentation 
 
