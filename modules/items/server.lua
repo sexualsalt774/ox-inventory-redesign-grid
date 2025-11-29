@@ -202,20 +202,30 @@ function Items.Metadata(inv, item, metadata, count)
             metadata.size = container.size
             metadata.items = container.items or nil
         elseif not next(metadata) then
-            if item.name == 'govid' then
-                count = 1
-                local char = exports['sandbox-characters']:FetchCharacterSource(inv.player.source)
-                if char then
-                    metadata.type = inv.player.name
-                    metadata.description = string.format( -- The UI now reads line breaks properly, so this works now
-                        "Name: %s %s\nSID: %s\nPassport ID: %s\nDOB: %s\nGender: %s",
-                        char:GetData("First"),
-                        char:GetData("Last"),
-                        char:GetData("SID"),
-                        char:GetData("User"),
-                        char:GetData("DOB"),
-                        char:GetData("Gender") == 1 and "Female" or "Male"
-                    )
+            if shared.framework == 'sandbox' then
+                if item.name == 'govid' then
+                    count = 1
+                    local char = exports['sandbox-characters']:FetchCharacterSource(inv.player.source)
+                    if char then
+                        metadata.type = inv.player.name
+                        metadata.description = string.format( -- The UI now reads line breaks properly, so this works now
+                            "Name: %s %s\nSID: %s\nPassport ID: %s\nDOB: %s\nGender: %s",
+                            char:GetData("First"),
+                            char:GetData("Last"),
+                            char:GetData("SID"),
+                            char:GetData("User"),
+                            char:GetData("DOB"),
+                            char:GetData("Gender") == 1 and "Female" or "Male"
+                        )
+                    end
+                end
+            else
+                if item.name == 'identification' then
+                    count = 1
+                    metadata = {
+                        type = inv.player.name,
+                        description = locale('identification', (inv.player.sex) and locale('male') or locale('female'), inv.player.dateofbirth)
+                    }
                 end
             end
         elseif item.name == 'garbage' then
@@ -230,14 +240,17 @@ function Items.Metadata(inv, item, metadata, count)
         end
     end
 
-    if inv?.player?.source then
-        local char = exports['sandbox-characters']:FetchCharacterSource(inv.player.source)
-        if char then
-            local cData = char:GetData()
-            local customMetadata = exports['ox_inventory']:BuildMetaDataTable(cData, item.name, metadata)
-            if customMetadata and next(customMetadata) then
-                for k, v in pairs(customMetadata) do
-                    metadata[k] = v
+    if shared.framework == 'sandbox' then
+        if inv?.player?.source then
+            local char = exports['sandbox-characters']:FetchCharacterSource(inv.player.source)
+            if char then
+                local cData = char:GetData()
+                local customMetadata = exports['ox_inventory']:BuildMetaDataTable(cData, item.name, metadata)
+                
+                if customMetadata and next(customMetadata) then
+                    for k, v in pairs(customMetadata) do
+                        metadata[k] = v
+                    end
                 end
             end
         end
