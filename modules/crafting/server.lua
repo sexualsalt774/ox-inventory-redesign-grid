@@ -416,11 +416,7 @@ local function executeCraft(source, benchId, craftingInvName, recipe, quantity)
     end
 
     -- Notify player of crafted item
-    TriggerClientEvent('ox_inventory:itemNotify', source, { 
-        { name = craftedItem.name, count = totalCraftCount, metadata = recipe.metadata or {} }, 
-        'ui_crafted', 
-        totalCraftCount 
-    })
+    TriggerClientEvent('ox_inventory:itemNotify', source, { { name = craftedItem.name, count = totalCraftCount, metadata = recipe.metadata or {} }, 'ui_added',  totalCraftCount  })
 
     return true, 'success'
 end
@@ -491,18 +487,7 @@ lib.callback.register('ox_inventory:startCraftQueue', function(source, benchId, 
                     break
                 end
 
-                -- Execute the craft
-                local success, error = executeCraft(source, benchId, craftingInvName, recipe, craftData.quantity)
-                
-                if not success then
-                    -- Notify player of failure
-                    TriggerClientEvent('ox_inventory:itemNotify', source, { 
-                        { name = 'error' }, 
-                        'ui_error', 
-                        1
-                    })
-                    break
-                end
+                executeCraft(source, benchId, craftingInvName, recipe, craftData.quantity)
             end
         end
 
