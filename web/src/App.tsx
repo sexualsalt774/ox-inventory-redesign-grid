@@ -43,7 +43,7 @@ debugData([
         id: 'test',
         type: 'player',
         slots: 8,
-        label: 'AutLaaw Dev',
+        label: 'Pockets',
         weight: 3000,
         maxWeight: 5000,
         items: [
@@ -211,36 +211,48 @@ debugData([
     data: {
       rightInventory: {
         id: '1738',
-        type: 'crafting',
+        type: 'shop',
         slots: 8,
         label: 'Hidden Cache',
         weight: 1200,
         maxWeight: 5000,
         items: [
-          {
-            name: 'ironbar',
-            ingredients: {
-              sign_dontblock: 5,
-              sign_leftturn: 5,
-              sign_nopark: 5,
-              sign_notresspass: 5,
-            },
-            duration: 5000,
-            count: 50,
-          },
-          {
-            name: 'scrapmetal',
-            ingredients: {
-              sign_rightturn: 5,
-              sign_stop: 5,
-              sign_uturn: 5,
-              sign_walkingman: 5,
-              sign_yield: 5,
-            },
-            duration: 5000,
-            count: 75,
-          }
-        ],
+          { slot: 1, name: 'sign_rightturn', count: 5, weight: 200 },
+          { slot: 2, name: 'sign_stop', count: 5, weight: 200 },
+          { slot: 3, name: 'sign_uturn', count: 5, weight: 200 },
+          { slot: 4, name: 'sign_walkingman', count: 5, weight: 200 },
+          { slot: 5, name: 'sign_yield', count: 5, weight: 200 },
+          { slot: 6, name: 'sign_dontblock', count: 5, weight: 200 },
+          { slot: 7, name: 'sign_leftturn', count: 5, weight: 200 },
+          { slot: 8, name: 'sign_nopark', count: 5, weight: 200 },
+          { slot: 9, name: 'sign_notresspass', count: 5, weight: 200 },
+        ]
+        // This is for crafting testing
+        // items: [
+        //   {
+        //     name: 'ironbar',
+        //     ingredients: {
+        //       sign_dontblock: 5,
+        //       sign_leftturn: 5,
+        //       sign_nopark: 5,
+        //       sign_notresspass: 5,
+        //     },
+        //     duration: 5000,
+        //     count: 50,
+        //   },
+        //   {
+        //     name: 'scrapmetal',
+        //     ingredients: {
+        //       sign_rightturn: 5,
+        //       sign_stop: 5,
+        //       sign_uturn: 5,
+        //       sign_walkingman: 5,
+        //       sign_yield: 5,
+        //     },
+        //     duration: 5000,
+        //     count: 75,
+        //   }
+        // ],
       },
     },
   },
