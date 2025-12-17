@@ -44,7 +44,8 @@ local function setupShopItems(id, shopType, shopName, groups)
                 qualification = slot.qualification,
                 currency = slot.currency,
                 grade = slot.grade,
-                job = slot.job
+                job = slot.job,
+				rarity = Item.rarity or (slot.metadata and slot.metadata.rarity)
             }
 
             if slot.metadata then
