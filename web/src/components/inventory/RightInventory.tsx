@@ -430,9 +430,31 @@ const RightInventory: React.FC = () => {
         fetchNui('buyItems', { items: itemsPayload, method: method })
     };
 
+    const rightInventoryHotbar = () => {
+        if (!rightInventory?.items) return rightInventory;
+    
+        return {
+            ...rightInventory,
+            type: InventoryType.OTHERPLAYER_HOTBAR,
+            items: rightInventory.items.slice(0, 9),
+        };
+    };    
+
     return (
         <div className={`right-inventory ${type === 'shop' ? 'right-inventory-shop' : ''}`}>
             <AnimatePresence>
+                {rightInventory && type === "otherplayer" && (
+                    <div key={InventoryType.OTHERPLAYER_HOTBAR} className="inventory-item">
+                        <motion.div>
+                            <InventoryGrid
+                                inventory={rightInventoryHotbar()}
+                                hideExtras={hideExtras}
+                                noWrapper={false}
+                            />
+                        </motion.div>
+                    </div>
+                )}
+
                 {rightInventory && type !== "crafting" && (
                     <div key={rightInventory.type} className="inventory-item">
                         <motion.div>
