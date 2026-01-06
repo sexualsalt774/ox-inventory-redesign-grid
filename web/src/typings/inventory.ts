@@ -7,6 +7,8 @@ export enum InventoryType {
     CONTAINER = 'container',
     CRAFTING = 'crafting',
     CRAFTING_STORAGE = 'crafting_storage',
+    OTHERPLAYER = 'otherplayer',
+    OTHERPLAYER_HOTBAR = 'otherplayer_hotbar',
 }
 
 export type Inventory = {

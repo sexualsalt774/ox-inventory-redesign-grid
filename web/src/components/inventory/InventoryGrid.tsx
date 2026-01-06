@@ -70,11 +70,17 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
     if (inventory.type === InventoryType.SHOP) {
       return slotsToShow;
     }
-    return slotsToShow.slice(
+  
+    const items =
+      inventory.type === InventoryType.OTHERPLAYER
+        ? slotsToShow.slice(9)
+        : slotsToShow;
+  
+    return items.slice(
       0,
-      Math.min((page + 1) * PAGE_SIZE, slotsToShow.length)
+      Math.min((page + 1) * PAGE_SIZE, items.length)
     );
-  }, [slotsToShow, inventory.type, page]);
+  }, [slotsToShow, inventory.type, page]);  
 
   const normalizedQuery = toAsciiLower(searchQuery);
 
@@ -86,6 +92,8 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
     if (inventory.type === InventoryType.CRAFTING_STORAGE) return 'Crafting Storage';
     if (inventory.type === InventoryType.BACKPACK) return inventory.label || 'Backpack';
     if (inventory.type === InventoryType.CONTAINER) return 'Storage';
+    if (inventory.type === InventoryType.OTHERPLAYER) return 'Robed Pockets';
+    if (inventory.type === InventoryType.OTHERPLAYER_HOTBAR) return 'Robed Pockets Hotbar';
 
     if (inventory.type === 'drop') return 'Ground';
     if (inventory.type === 'trunk') return 'Trunk';
