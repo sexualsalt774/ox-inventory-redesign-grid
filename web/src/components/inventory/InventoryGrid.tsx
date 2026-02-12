@@ -7,72 +7,66 @@ import { useAppSelector } from '../../store';
 import { toAsciiLower } from '../../utils/string';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Grid constants
+// Fixed Grid Configuration
 // ─────────────────────────────────────────────────────────────────────────────
-const CELL_SIZE = 56;   // px — size of one grid square
-const CELL_GAP  = 3;    // px — gap between squares
-const GRID_COLS = 10;   // number of columns in the grid
+const CELL_SIZE = 56;
+const CELL_GAP = 3;
+const GRID_COLS = 10;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Packing — assigns each slot a visual (col, row) in the 2D grid
-// ─────────────────────────────────────────────────────────────────────────────
-interface Placement { slot: number; col: number; row: number; w: number; h: number; }
-
-function packItems(slots: Slot[], cols: number): { placements: Placement[]; rows: number } {
-  const occupied: boolean[][] = [];
-
-  const ensureRows = (maxRow: number) => {
-    while (occupied.length <= maxRow) occupied.push(new Array(cols).fill(false));
-  };
-
-  const markOccupied = (col: number, row: number, w: number, h: number) => {
-    for (let r = row; r < row + h; r++) {
-      ensureRows(r);
-      for (let c = col; c < col + w; c++) occupied[r][c] = true;
-    }
-  };
-
-  const findFree = (w: number, h: number): { col: number; row: number } => {
-    for (let r = 0; ; r++) {
-      ensureRows(r + h - 1);
-      for (let c = 0; c <= cols - w; c++) {
-        let fits = true;
-        outer: for (let dr = 0; dr < h; dr++) {
-          ensureRows(r + dr);
-          for (let dc = 0; dc < w; dc++) {
-            if (occupied[r + dr][c + dc]) { fits = false; break outer; }
-          }
-        }
-        if (fits) return { col: c, row: r };
-      }
-    }
-  };
-
-  const placements: Placement[] = [];
-
-  for (const slot of slots) {
-    const w = getItemWidth(slot);
-    const h = getItemHeight(slot);
-    // Honour server-assigned grid position if present
-    const fixedCol: number | undefined = (slot as any).gridX;
-    const fixedRow: number | undefined = (slot as any).gridY;
-    if (fixedCol !== undefined && fixedRow !== undefined) {
-      markOccupied(fixedCol, fixedRow, w, h);
-      placements.push({ slot: slot.slot, col: fixedCol, row: fixedRow, w, h });
-      continue;
-    }
-    const pos = findFree(w, h);
-    markOccupied(pos.col, pos.row, w, h);
-    placements.push({ slot: slot.slot, col: pos.col, row: pos.row, w, h });
-  }
-
-  const maxRow = placements.reduce((m, p) => Math.max(m, p.row + p.h), 0);
-  return { placements, rows: Math.max(maxRow, 4) };
+interface Placement {
+  slot: number;
+  col: number;
+  row: number;
+  w: number;
+  h: number;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Props
-// ─────────────────────────────────────────────────────────────────────────────
+// Fixed-size packing (NO row growth)
+function packItems(
+  slots: Slot[],
+  cols: number,
+  maxRows: number
+): { placements: Placement[]; rows: number } {
+  const occupied: boolean[][] = Array.from({ length: maxRows }, () =>
+    new Array(cols).fill(false)
+  );
+  const placements: Placement[] = [];
+
+  const fits = (col: number, row: number, w: number, h: number) => {
+    if (col + w > cols || row + h > maxRows) return false;
+    for (let r = 0; r < h; r++)
+      for (let c = 0; c < w; c++)
+        if (occupied[row + r][col + c]) return false;
+    return true;
+  };
+
+  const mark = (col: number, row: number, w: number, h: number) => {
+    for (let r = 0; r < h; r++)
+      for (let c = 0; c < w; c++)
+        occupied[row + r][col + c] = true;
+  };
+
+  for (const slot of slots) {
+    const w = slot.name ? getItemWidth(slot) : 1;
+    const h = slot.name ? getItemHeight(slot) : 1;
+    let placed = false;
+
+    for (let r = 0; r < maxRows; r++) {
+      for (let c = 0; c < cols; c++) {
+        if (fits(c, r, w, h)) {
+          if (slot.name) mark(c, r, w, h);
+          placements.push({ slot: slot.slot, col: c, row: r, w, h });
+          placed = true;
+          break;
+        }
+      }
+      if (placed) break;
+    }
+  }
+
+  return { placements, rows: maxRows };
+}
+
 interface InventoryGridProps {
   inventory: Inventory;
   itemsOverride?: Slot[];
@@ -83,132 +77,82 @@ interface InventoryGridProps {
   collapsible?: boolean;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Component
-// ─────────────────────────────────────────────────────────────────────────────
 const InventoryGrid: React.FC<InventoryGridProps> = ({
-  inventory, itemsOverride, hideHeader, hideExtras, noWrapper, onCtrlClick, collapsible,
+  inventory,
+  itemsOverride,
+  hideHeader,
+  hideExtras,
+  noWrapper,
+  onCtrlClick,
+  collapsible,
 }) => {
   const weight = useMemo(
-    () => inventory.maxWeight !== undefined ? Math.floor(getTotalWeight(inventory.items) * 1000) / 1000 : 0,
+    () =>
+      inventory.maxWeight !== undefined
+        ? Math.floor(getTotalWeight(inventory.items) * 1000) / 1000
+        : 0,
     [inventory.maxWeight, inventory.items]
   );
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isBusy = useAppSelector((state) => state.inventory.isBusy);
 
-  // For OTHERPLAYER we skip the first 9 utility/hotbar slots
   const slotsToRender = useMemo(() => {
     const base = itemsOverride ?? inventory.items;
-    return inventory.type === InventoryType.OTHERPLAYER ? base.slice(9) : base;
+    return inventory.type === InventoryType.OTHERPLAYER
+      ? base.slice(9)
+      : base;
   }, [itemsOverride, inventory.items, inventory.type]);
 
-  const { placements, rows } = useMemo(() => packItems(slotsToRender, GRID_COLS), [slotsToRender]);
+  const GRID_ROWS = Math.ceil(slotsToRender.length / GRID_COLS);
 
-  // Map (col,row) → the REAL slot object sitting there, so empty cells can
-  // reference the correct slot number that the reducer expects.
-  const placementMap = useMemo(() => {
-    const map = new Map<string, { placement: Placement; slot: Slot }>();
-    for (const p of placements) {
-      const slot = slotsToRender.find((s) => s.slot === p.slot);
-      if (!slot) continue;
-      // Mark every cell this item covers
-      for (let r = p.row; r < p.row + p.h; r++) {
-        for (let c = p.col; c < p.col + p.w; c++) {
-          map.set(`${c},${r}`, { placement: p, slot });
-        }
-      }
-    }
-    return map;
-  }, [placements, slotsToRender]);
+  const { placements, rows } = useMemo(
+    () => packItems(slotsToRender, GRID_COLS, GRID_ROWS),
+    [slotsToRender, GRID_ROWS]
+  );
 
-  // All empty cells — we render them as drop targets using the REAL slot
-  // object from slotsToRender that corresponds to that grid position.
-  // Empty cells are slots that have no item (slot.name === undefined).
-  // We need to find which real empty slot to use for each empty visual cell.
-  const emptyCellSlots = useMemo(() => {
-    const emptySlots = slotsToRender.filter((s) => s.name === undefined);
-    const result: Array<{ col: number; row: number; slot: Slot }> = [];
-    let emptyIdx = 0;
-
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < GRID_COLS; c++) {
-        if (!placementMap.has(`${c},${r}`)) {
-          // Assign the next real empty slot to this visual cell
-          const realSlot = emptySlots[emptyIdx];
-          if (realSlot !== undefined) {
-            result.push({ col: c, row: r, slot: realSlot });
-            emptyIdx++;
-          }
-          // If we've used all empty slots we stop rendering drop targets
-          // (shouldn't happen unless the grid is over-packed)
-        }
-      }
-    }
-    return result;
-  }, [placementMap, slotsToRender, rows]);
-
-  const normalizedQuery = toAsciiLower(searchQuery);
   const cellStep = CELL_SIZE + CELL_GAP;
   const gridW = GRID_COLS * CELL_SIZE + (GRID_COLS - 1) * CELL_GAP;
-  const gridH = rows * CELL_SIZE + (rows - 1) * CELL_GAP;
+  const gridH = GRID_ROWS * CELL_SIZE + (GRID_ROWS - 1) * CELL_GAP;
+  const normalizedQuery = toAsciiLower(searchQuery);
 
-  const headerTitle = useMemo(() => {
-    if (inventory.type === InventoryType.PLAYER) return 'Pockets';
-    if (inventory.type === InventoryType.SHOP) return 'Shop';
-    if (inventory.type === InventoryType.CRAFTING) return 'Crafting';
-    if (inventory.type === InventoryType.CRAFTING_STORAGE) return 'Crafting Storage';
-    if (inventory.type === InventoryType.BACKPACK) return inventory.label || 'Backpack';
-    if (inventory.type === InventoryType.CONTAINER) return 'Storage';
-    if (inventory.type === InventoryType.OTHERPLAYER) return 'Robed Pockets';
-    if (inventory.type === InventoryType.OTHERPLAYER_HOTBAR) return 'Robed Pockets Hotbar';
-    if (inventory.type === 'stash') return inventory.label || 'Stash';
-    if (inventory.type === 'drop') return 'Ground';
-    if (inventory.type === 'trunk') return 'Trunk';
-    if (inventory.type === 'glovebox') return 'Glovebox';
-    return 'Ground';
-  }, [inventory.label, inventory.type]);
-
-  const handleHeaderClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    if (!collapsible) return;
-    const target = event.target as HTMLElement;
-    if (target.closest('input') || target.closest('[data-stop-collapse]')) return;
-    setIsCollapsed((prev) => !prev);
-  }, [collapsible]);
-
+  // ─────────────────────────────────────────────────────────────
+  // Grid content
+  // ─────────────────────────────────────────────────────────────
   const gridContent = (
     <div
-      className="inventory-grid-container"
-      style={{ position: 'relative', width: gridW, height: gridH, flexShrink: 0 }}
+      style={{
+        position: 'relative',
+        width: gridW,
+        height: gridH,
+        overflow: 'hidden',
+      }}
     >
-      {/* ── Empty cells as drop targets, using REAL slot numbers ─────────── */}
-      {emptyCellSlots.map(({ col, row, slot }) => (
-        <InventorySlot
-          key={`empty-${slot.slot}`}
-          item={slot}
-          inventoryId={inventory.id}
-          inventoryType={inventory.type}
-          inventoryGroups={inventory.groups}
-          absolute
-          posLeft={col * cellStep}
-          posTop={row * cellStep}
-          slotWidth={CELL_SIZE}
-          slotHeight={CELL_SIZE}
-          style={{
-            border: '1px solid rgba(255,255,255,0.04)',
-            background: 'linear-gradient(135deg, rgba(22,22,22,0.5), rgba(0,0,0,0.6))',
-            boxShadow: 'none',
-          }}
-        />
-      ))}
+      {slotsToRender.map((slot, index) => {
+        const col = index % GRID_COLS;
+        const row = Math.floor(index / GRID_COLS);
+        const w = getItemWidth(slot);
+        const h = getItemHeight(slot);
+        const remainingCols = GRID_COLS - col;
+        const remainingRows = GRID_ROWS - row;
+        const visualWidth = w * CELL_SIZE + (w - 1) * CELL_GAP;
+        const visualHeight = h * CELL_SIZE + (h - 1) * CELL_GAP;
 
-      {/* ── Items ────────────────────────────────────────────────────────── */}
-      {placements.map((p) => {
-        const slot = slotsToRender.find((s) => s.slot === p.slot);
-        if (!slot) return null;
-        const matches = toAsciiLower(slot?.name ?? '').includes(normalizedQuery);
-        const w = p.w * CELL_SIZE + (p.w - 1) * CELL_GAP;
-        const h = p.h * CELL_SIZE + (p.h - 1) * CELL_GAP;
+        const canDropHere = (dragItem: any) => {
+          const dragWidth = getItemWidth(dragItem);
+          const dragHeight = getItemHeight(dragItem);
+          if (dragWidth > remainingCols || dragHeight > remainingRows) return false;
+          for (let r = 0; r < dragHeight; r++)
+            for (let c = 0; c < dragWidth; c++) {
+              const checkIndex = (row + r) * GRID_COLS + (col + c);
+              const checkSlot = slotsToRender[checkIndex];
+              if (!checkSlot) return false;
+              if (checkSlot?.name && checkSlot.slot !== slot.slot) return false;
+            }
+          return true;
+        };
+
         return (
           <InventorySlot
             key={`${inventory.type}-${inventory.id}-${slot.slot}`}
@@ -216,78 +160,181 @@ const InventoryGrid: React.FC<InventoryGridProps> = ({
             inventoryType={inventory.type}
             inventoryGroups={inventory.groups}
             inventoryId={inventory.id}
-            onCtrlClick={onCtrlClick}
             absolute
-            posLeft={p.col * cellStep}
-            posTop={p.row * cellStep}
-            slotWidth={w}
-            slotHeight={h}
-            style={{ opacity: searchQuery && !matches ? 0.25 : 1, transition: 'opacity 0.2s ease' }}
+            posLeft={col * cellStep}
+            posTop={row * cellStep}
+            slotWidth={visualWidth}
+            slotHeight={visualHeight}
+            canDrop={canDropHere}
+            style={{
+              opacity:
+                searchQuery &&
+                !toAsciiLower(slot.name ?? '').includes(normalizedQuery)
+                  ? 0.25
+                  : 1,
+            }}
           />
         );
       })}
     </div>
   );
 
+  // ─────────────────────────────────────────────────────────────
+  // Header, search & weight bar design
+  // ─────────────────────────────────────────────────────────────
+  const headerTitle = useMemo(() => {
+    switch (inventory.type) {
+      case InventoryType.PLAYER:
+        return 'Pockets';
+      case InventoryType.SHOP:
+        return 'Shop';
+      case InventoryType.CRAFTING:
+        return 'Crafting';
+      case InventoryType.CRAFTING_STORAGE:
+        return 'Crafting Storage';
+      case InventoryType.BACKPACK:
+        return inventory.label || 'Backpack';
+      case InventoryType.CONTAINER:
+        return 'Storage';
+      case InventoryType.OTHERPLAYER:
+        return 'Robed Pockets';
+      case InventoryType.OTHERPLAYER_HOTBAR:
+        return 'Robed Pockets Hotbar';
+      case 'stash':
+        return inventory.label || 'Stash';
+      case 'drop':
+        return 'Ground';
+      case 'trunk':
+        return 'Trunk';
+      case 'glovebox':
+        return 'Glovebox';
+      default:
+        return 'Ground';
+    }
+  }, [inventory.type, inventory.label]);
+
+  const handleHeaderClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!collapsible) return;
+      const target = event.target as HTMLElement;
+      if (target.closest('input') || target.closest('[data-stop-collapse]')) return;
+      setIsCollapsed((prev) => !prev);
+    },
+    [collapsible]
+  );
+
   const content = (
     <>
       {!hideHeader && (
-        <div>
-          <div
-            className="inventory-grid-header-wrapper"
-            onClick={collapsible ? handleHeaderClick : undefined}
-            role={collapsible ? 'button' : undefined}
-            aria-expanded={collapsible ? !isCollapsed : undefined}
-            style={collapsible ? { cursor: 'pointer' } : undefined}
-          >
-            <div className="inventory-grid-header-wrapper2"><h1>{headerTitle}</h1></div>
-            {!hideExtras && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1vh', cursor: 'auto' }} data-stop-collapse>
-                  <input
-                    style={{ border: '1px solid rgba(255,255,255,0.2)', height: '2.5vh', fontSize: '1vh', display: 'flex', alignItems: 'center' }}
-                    type="search"
-                    placeholder="Search Item"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.stopPropagation()}
-                    onClick={(e) => e.stopPropagation()}
-                    onFocus={() => { fetch(`https://${GetParentResourceName()}/thisfuckingsucks`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ focus: true }) }); }}
-                    onBlur={() => { fetch(`https://${GetParentResourceName()}/lolthisisstupid`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ focus: false }) }); }}
-                  />
-                  <i className="far fa-search"></i>
-                </div>
-                <div className="inventory-grid-header-weight">
-                  {inventory.maxWeight && (
-                    <p>
-                      <i className="fa-light fa-weight-hanging"></i>{' '}
-                      {weight / 1000} / {inventory.maxWeight / 1000}kg
-                      {collapsible && <i className={`fas fa-angle-${isCollapsed ? 'down' : 'up'}`} style={{ marginLeft: '0.5rem' }}></i>}
-                    </p>
-                  )}
-                </div>
-              </div>
+        <div
+          className="inventory-header-wrapper"
+          onClick={collapsible ? handleHeaderClick : undefined}
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '0.4rem 0.8rem',
+            backgroundColor: '#222',
+            color: '#fff',
+            borderRadius: '4px',
+            cursor: collapsible ? 'pointer' : 'default',
+            userSelect: 'none',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {collapsible && (
+              <span
+                style={{
+                  display: 'inline-block',
+                  transform: isCollapsed ? 'rotate(-90deg)' : 'rotate(0deg)',
+                  transition: '0.2s',
+                }}
+              >
+                ▶
+              </span>
             )}
+            <h1 style={{ fontSize: '1rem', margin: 0 }}>{headerTitle}</h1>
           </div>
-          {!hideExtras && <WeightBar percent={inventory.maxWeight ? (weight / inventory.maxWeight) * 100 : 0} />}
+
+          {!hideExtras && (
+            <div
+              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+              data-stop-collapse
+            >
+              <input
+                type="search"
+                placeholder="Search Item"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  height: '1.8rem',
+                  fontSize: '0.9rem',
+                  borderRadius: '3px',
+                  border: '1px solid #555',
+                  backgroundColor: '#111',
+                  color: '#fff',
+                  padding: '0 0.3rem',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+              {inventory.maxWeight && (
+                <p style={{ fontSize: '0.8rem', margin: 0 }}>
+                  {weight / 1000} / {inventory.maxWeight / 1000}kg
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
+      {!hideExtras && inventory.maxWeight && (
+        <div
+          style={{
+            marginTop: '0.3rem',
+            height: '6px',
+            borderRadius: '3px',
+            border: '1px solid #333',
+            overflow: 'hidden',
+            backgroundColor: '#111',
+          }}
+        >
+          <WeightBar percent={(weight / inventory.maxWeight) * 100} />
+        </div>
+      )}
+
+
       {collapsible ? (
         <div
-          className={`inventory-collapse${isCollapsed ? '' : ' open'}`}
-          style={{ maxHeight: isCollapsed ? 0 : gridH + 32, opacity: isCollapsed ? 0 : 1, overflow: 'hidden', transition: 'max-height 0.3s ease, opacity 0.2s ease', pointerEvents: isCollapsed ? 'none' : 'auto' }}
+          style={{
+            maxHeight: isCollapsed ? 0 : gridH + 32,
+            opacity: isCollapsed ? 0 : 1,
+            overflow: 'hidden',
+            transition: 'max-height 0.3s ease, opacity 0.2s ease',
+            pointerEvents: isCollapsed ? 'none' : 'auto',
+          }}
         >
-          <div style={{ paddingTop: 6 }}>{gridContent}</div>
+          {gridContent}
         </div>
-      ) : gridContent}
+      ) : (
+        gridContent
+      )}
     </>
   );
 
-  if (noWrapper) return content;
+  if (noWrapper)
+    return content;
 
   return (
-    <div className="inventory-grid-wrapper" style={{ pointerEvents: isBusy ? 'none' : 'auto', overflowX: 'auto' }}>
+    <div
+      style={{
+        pointerEvents: isBusy ? 'none' : 'auto',
+        overflowX: 'auto',
+        padding: '0.3rem',
+        backgroundColor: '#111',
+        borderRadius: '6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.5)',
+      }}
+    >
       {content}
     </div>
   );

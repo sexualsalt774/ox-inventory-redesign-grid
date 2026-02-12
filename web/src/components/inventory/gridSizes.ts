@@ -115,6 +115,7 @@ export const GRID_SIZE_PREFIXES: Array<{ prefix: string; size: GridSize }> = [
 
   // ── Ammo ─────────────────────────────────────────────────────────────────────
   { prefix: 'ammo_',                   size: { w: 1, h: 1 } },
+  { prefix: 'ammo-',                   size: { w: 1, h: 1 } },
 
   // ── Bags / containers ────────────────────────────────────────────────────────
   { prefix: 'backpack',                size: { w: 2, h: 3 } },

@@ -105,10 +105,29 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
       },
       canDrop: (source) => {
         if (source.inventory === InventoryType.SHOP) return false;
-        const baseAllowed = (source.item.slot !== item.slot || source.inventory !== inventoryType) && inventoryType !== InventoryType.SHOP && inventoryType !== InventoryType.CRAFTING;
-        if (!baseAllowed) return false;
+
+        if (
+          inventoryType === InventoryType.SHOP ||
+          inventoryType === InventoryType.CRAFTING
+        ) {
+          return false;
+        }
+
+        // Allow drop if:
+        // - Different inventory
+        // - OR different slot
+        // - OR target slot is empty
+        const isSameSlot =
+          source.item.slot === item.slot &&
+          source.inventory === inventoryType;
+
+        const targetIsEmpty = !item?.name;
+
+        if (isSameSlot && !targetIsEmpty) return false;
+
         return canDrop ? canDrop(source.item) : true;
       },
+
     }),
     [inventoryType, item, canDrop]
   );
@@ -158,65 +177,136 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
         boxSizing: 'border-box',
         border: isOver ? '1px dashed rgba(255,255,255,0.5)' : '1px solid transparent',
         background: isOver
-          ? `${item?.name ? `url(${getItemUrl(item as SlotWithItem)}) center / ${imgSizePct}% ${imgSizePct}% no-repeat padding-box,` : ''} linear-gradient(45deg, #161616bb, #000000b4) padding-box, linear-gradient(90deg, rgba(255,255,255,0.336), rgba(0,0,0,0.589)) border-box`
+          ? `${item?.name ? `url(${getItemUrl(item as SlotWithItem)}) center / contain no-repeat padding-box,` : ''} linear-gradient(45deg, #161616bb, #000000b4) padding-box, linear-gradient(90deg, rgba(255,255,255,0.336), rgba(0,0,0,0.589)) border-box`
           : rarityColor
-          ? `${item?.name ? `url(${getItemUrl(item as SlotWithItem)}) center / ${imgSizePct}% ${imgSizePct}% no-repeat padding-box,` : ''} linear-gradient(45deg, #161616bb, #000000b4) padding-box, linear-gradient(-45deg, rgba(255,255,255,0), ${withAlpha(rarityColor, 1)}) border-box`
-          : `${item?.name ? `url(${getItemUrl(item as SlotWithItem)}) center / ${imgSizePct}% ${imgSizePct}% no-repeat padding-box,` : ''} linear-gradient(45deg, #161616bb, #000000b4) padding-box, linear-gradient(135deg, rgba(255,255,255,0.12), rgba(0,0,0,0.589)) border-box`,
-        filter: (!canPurchaseItem(item, { type: inventoryType, groups: inventoryGroups }) || !canCraftItem(item, inventoryType)) ? 'brightness(80%) grayscale(100%)' : undefined,
+          ? `${item?.name ? `url(${getItemUrl(item as SlotWithItem)}) center / contain no-repeat padding-box,` : ''} linear-gradient(45deg, #161616bb, #000000b4) padding-box, linear-gradient(-45deg, rgba(255,255,255,0), ${withAlpha(rarityColor, 1)}) border-box`
+          : `${item?.name ? `url(${getItemUrl(item as SlotWithItem)}) center / contain no-repeat padding-box,` : ''} linear-gradient(45deg, #161616bb, #000000b4) padding-box, linear-gradient(135deg, rgba(255,255,255,0.12), rgba(0,0,0,0.589)) border-box`,
+        filter: (!canPurchaseItem(item, { type: inventoryType, groups: inventoryGroups }) || !canCraftItem(item, inventoryType))
+          ? 'brightness(80%) grayscale(100%)'
+          : undefined,
         opacity: isDragging ? 0.35 : 1.0,
-        boxShadow: isOver ? 'inset 0px 0px 40px -20px rgba(255,255,255,0.1)' : rarityColor ? `inset 0px 0px 3vh -2vh ${withAlpha(rarityColor, 1)}` : 'inset 0px 0px 2vh -1vh rgba(0,0,0,1)',
+        boxShadow: isOver
+          ? 'inset 0px 0px 40px -20px rgba(255,255,255,0.1)'
+          : rarityColor
+          ? `inset 0px 0px 3vh -2vh ${withAlpha(rarityColor, 1)}`
+          : 'inset 0px 0px 2vh -1vh rgba(0,0,0,1)',
+        overflow: 'hidden', // <-- prevent overflow
         ...style,
       }}
     >
       {isSlotWithItem(item) && (
         <div
           className="item-slot-wrapper"
-          onMouseEnter={() => { timerRef.current = window.setTimeout(() => { dispatch(openTooltip({ item, inventoryType })); }, 500) as unknown as number; }}
-          onMouseLeave={() => { dispatch(closeTooltip()); if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; } }}
+          onMouseEnter={() => {
+            timerRef.current = window.setTimeout(() => {
+              dispatch(openTooltip({ item, inventoryType }));
+            }, 500) as unknown as number;
+          }}
+          onMouseLeave={() => {
+            dispatch(closeTooltip());
+            if (timerRef.current) {
+              clearTimeout(timerRef.current);
+              timerRef.current = null;
+            }
+          }}
+          style={{ width: '100%', height: '100%', overflow: 'hidden', position: 'relative' }}
         >
-          <div className="item-slot-header-wrapper" style={{ color: rarityColor ?? undefined }}>
-            <div className="hotbar-slot-header-wrapper">
+          <div className="item-slot-header-wrapper" style={{ color: rarityColor ?? undefined, overflow: 'hidden' }}>
+            <div className="hotbar-slot-header-wrapper" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {item.count && item.count > 1 && (
-                <div className={visualInventoryType === 'utility' ? 'item-slot-info-wrapper2' : 'item-slot-info-wrapper'}>
-                  <p>{item.count.toLocaleString('en-us')}x</p>
+                <div className={visualInventoryType === 'utility' ? 'item-slot-info-wrapper2' : 'item-slot-info-wrapper'} style={{ overflow: 'hidden' }}>
+                  <p style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.count.toLocaleString('en-us')}x</p>
                 </div>
               )}
             </div>
             {visualInventoryType === 'utility' && item.slot <= 5 && (
-              <div className="hotbar-slot-header-wrapper">
-                {(item.slot === 3 || item.slot === 4 || item.slot === 5) ? (
-                  <div className="inventory-slot-number" style={{ background: rarityColor ?? undefined, border: `1px solid ${rarityColor}` }}>{item.slot}</div>
-                ) : (
-                  <div className="inventory-slot-number">{item.slot}</div>
-                )}
+              <div className="hotbar-slot-header-wrapper" style={{ overflow: 'hidden' }}>
+                <div
+                  className="inventory-slot-number"
+                  style={{
+                    background: rarityColor ?? undefined,
+                    border: rarityColor ? `1px solid ${rarityColor}` : undefined,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {item.slot}
+                </div>
               </div>
             )}
-            <div className="inventory-slot-rarity" style={{ color: rarityColor ?? undefined }}>{getRarityDisplayName(item.rarity)}</div>
+            <div
+              className="inventory-slot-rarity"
+              style={{
+                color: rarityColor ?? undefined,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {getRarityDisplayName(item.rarity)}
+            </div>
           </div>
 
           {(itemW > 1 || itemH > 1) && (
-            <div style={{ position: 'absolute', bottom: 22, right: 5, fontSize: '0.65vh', color: 'rgba(255,255,255,0.3)', pointerEvents: 'none', userSelect: 'none' }}>
+            <div
+              style={{
+                position: 'absolute',
+                bottom: 22,
+                right: 5,
+                fontSize: '0.65vh',
+                color: 'rgba(255,255,255,0.3)',
+                pointerEvents: 'none',
+                userSelect: 'none',
+                overflow: 'hidden',
+              }}
+            >
               {itemW}×{itemH}
             </div>
           )}
 
-          <div>
+          <div style={{ overflow: 'hidden' }}>
             {inventoryType === 'shop' && item?.price !== undefined ? (
-              <div className="inventory-slot-label-box">
-                <div className="inventory-slot-label-text">{item.metadata?.label ? item.metadata.label : Items[item.name]?.label || item.label || item.name}</div>
+              <div className="inventory-slot-label-box" style={{ overflow: 'hidden' }}>
+                <div
+                  className="inventory-slot-label-text"
+                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {item.metadata?.label ?? Items[item.name]?.label ?? item.label ?? item.name}
+                </div>
                 {item?.currency !== 'money' && item.currency ? (
-                  <div className="item-slot-currency-wrapper">
-                    <img src={item.currency === 'black_money' ? 'assets/icons/black_money.png' : 'assets/icons/money.png'} alt={item.currency} />
-                    <p style={{ color: 'rgba(171,171,171,1)' }}>{item.price.toLocaleString('en-us')}</p>
+                  <div className="item-slot-currency-wrapper" style={{ overflow: 'hidden' }}>
+                    <img
+                      src={item.currency === 'black_money' ? 'assets/icons/black_money.png' : 'assets/icons/money.png'}
+                      alt={item.currency}
+                      style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+                    />
+                    <p style={{ margin: 0, color: 'rgba(171,171,171,1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.price.toLocaleString('en-us')}
+                    </p>
                   </div>
                 ) : (
-                  <p style={{ color: 'rgba(171,171,171,1)' }}>{Locale.$ || '$'}{item.price.toLocaleString('en-us')}</p>
+                  <p style={{ margin: 0, color: 'rgba(171,171,171,1)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {Locale.$ || '$'}
+                    {item.price.toLocaleString('en-us')}
+                  </p>
                 )}
               </div>
             ) : (
-              <div className="inventory-slot-label-box">
-                <div className="inventory-slot-label-text">{item.metadata?.label ? item.metadata.label : Items[item.name]?.label || item.label || item.name}</div>
-                <p>{item.weight > 0 ? item.weight >= 1000 ? `${(item.weight / 1000).toLocaleString('en-us', { minimumFractionDigits: 2 })}kg ` : `${item.weight.toLocaleString('en-us', { minimumFractionDigits: 0 })}g ` : ''}</p>
+              <div className="inventory-slot-label-box" style={{ overflow: 'hidden' }}>
+                <div
+                  className="inventory-slot-label-text"
+                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {item.metadata?.label ?? Items[item.name]?.label ?? item.label ?? item.name}
+                </div>
+                <p style={{ margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.weight > 0
+                    ? item.weight >= 1000
+                      ? `${(item.weight / 1000).toLocaleString('en-us', { minimumFractionDigits: 2 })}kg`
+                      : `${item.weight.toLocaleString('en-us', { minimumFractionDigits: 0 })}g`
+                    : ''}
+                </p>
               </div>
             )}
           </div>
@@ -227,6 +317,7 @@ const InventorySlot: React.ForwardRefRenderFunction<HTMLDivElement, SlotProps> =
       )}
     </div>
   );
+
 };
 
 export default React.memo(React.forwardRef(InventorySlot));
